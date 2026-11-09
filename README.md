@@ -1,185 +1,179 @@
-# SSH_Log_Analyzer
-Python-based SSH authentication log analyzer featuring failed login detection, IP tracking, and time-based brute-force alerts.
-
 # SSH Failed Login Analyzer
 
-**Python Cybersecurity Project 01**
+**Python Cybersecurity Project 01 | Blue Team / Security Monitoring**
 
-A Python-based security monitoring tool that analyzes Linux SSH authentication logs, identifies repeated failed login attempts, and flags potentially suspicious activity.
+A Python-based SSH authentication log analyzer designed to identify patterns of potentially suspicious login activity.
 
-The project demonstrates log analysis, Python scripting, and threshold-based security detection.
+The project demonstrates log parsing, event correlation, brute-force detection, command-line configuration, and security reporting.
 
 ## Project Overview
 
-The SSH Failed Login Analyzer was developed to explore how security analysts can identify suspicious authentication patterns using system logs.
+The analyzer processes SSH authentication logs, extracts failed login events, and groups them by source IPv4 address.
 
-The project includes two successfully tested implementations:
+The project was developed incrementally across three versions.
 
-- **Version 1:** Counts failed SSH authentication attempts by source IP address.
-- **Version 2:** Uses a configurable sliding time window to identify repeated failures occurring within a short period.
+| Version | Features |
+|---|---|
+| Version 1 | Failed login counting by IP address and threshold-based alerts |
+| Version 2 | Timestamp parsing and sliding-window brute-force detection |
+| Version 3 | Username tracking, CSV reporting, command-line arguments, configurable thresholds, and improved error handling |
 
-Both versions use Python's standard library and require no external packages.
+## Version 3 Features
 
-## Features
-
-**Version 1 — Basic Detection**
-- Reads Linux SSH authentication logs.
-- Extracts source IPv4 addresses using regular expressions.
-- Counts failed authentication attempts per IP.
-- Generates alerts when a configurable threshold is reached.
-
-**Version 2 — Time-Based Detection**
-- Parses authentication timestamps.
-- Groups failed login attempts by source IP.
-- Uses a configurable five-minute sliding window.
-- Identifies bursts of failed authentication attempts.
-- Reduces false positives caused by failures spread over longer periods.
+- Extracts timestamps, usernames, and source IPv4 addresses from supported SSH log entries.
+- Groups failed authentication attempts by source IP.
+- Detects repeated failures within a configurable sliding time window.
+- Tracks unique usernames targeted by each IP.
+- Accepts different log files through command-line arguments.
+- Allows users to customize the detection threshold and time window.
+- Exports findings to a CSV report.
+- Handles missing or inaccessible files and skips malformed timestamps.
 
 ## Technologies Used
 
 - Python 3
 - Regular expressions (`re`)
-- `collections.Counter`
-- `collections.defaultdict`
-- `collections.deque`
+- `collections.defaultdict` and `deque`
 - `datetime` and `timedelta`
-- Linux SSH authentication log format
+- `argparse`
+- `csv`
+- `pathlib`
 - Windows PowerShell for development and testing
+
+No third-party Python packages are required.
 
 ## Installation and Usage
 
-### Requirements
+Clone or download the repository and open a terminal in the project directory.
 
-Python 3 installed on Windows, Linux, or macOS.
-
-No additional Python packages are required.
-
-### Running Version 1
-
-On Windows:
+### Version 1
 
 ```powershell
-py ssh_login_analyzer.py
+py ssh_login_analyzer_v1.py
 ```
 
-On Linux or macOS:
-
-```bash
-python3 ssh_login_analyzer.py
-```
-
-### Running Version 2
-
-On Windows:
+### Version 2
 
 ```powershell
 py ssh_login_analyzer_v2.py
 ```
 
-On Linux or macOS:
+### Version 3 — Default Settings
 
-```bash
-python3 ssh_login_analyzer_v2.py
+```powershell
+py ssh_login_analyzer_v3.py
 ```
 
-Both scripts expect `sample_auth.log` in the current working directory.
+Uses `sample_auth.log`, a threshold of 3 failed attempts, and a five-minute detection window.
 
-## Configuration
+### Version 3 — Custom Log File
 
-Both versions support a configurable detection threshold:
-
-```python
-THRESHOLD = 3
+```powershell
+py ssh_login_analyzer_v3.py another_auth.log
 ```
 
-Version 2 also supports a configurable time window:
+### Version 3 — Custom Detection Settings
 
-```python
-WINDOW_MINUTES = 5
+```powershell
+py ssh_login_analyzer_v3.py sample_auth.log --threshold 5 --time_window 10
 ```
+
+This configuration requires at least five failed login attempts from the same IP within a ten-minute window.
+
+### Display Help
+
+```powershell
+py ssh_login_analyzer_v3.py --help
+```
+
+On Linux, use `python3` instead of `py`.
+
+## Detection Methodology
+
+Version 3 uses a sliding-window detection algorithm.
+
+1. Read authentication log entries.
+2. Extract the timestamp, username, and source IP.
+3. Group failed login events by source IP.
+4. Sort events chronologically.
+5. Maintain a queue of attempts within the configured time window.
+6. Trigger an alert when the number of attempts reaches the configured threshold.
+7. Export results to CSV.
+
+The analyzer records the first threshold crossing for each source IP.
 
 ## Testing and Results
 
-### Version 1 — Tested Successfully
+Testing uses synthetic SSH authentication logs and documentation-range IP addresses.
 
-The script identified five failed authentication attempts across two source IP addresses.
+### Version 1
 
-```text
-=== SSH Failed Login Report ===
-Total failed attempts: 5
+Successfully identified five failed login attempts across two source IPs, generating an alert for the IP with four failures.
 
-192.0.2.10: 4 failed attempts
-  [ALERT] Possible Brute-Force activity!
-198.51.100.25: 1 failed attempts
-```
+### Version 2
 
-**Result: PASS**
+Successfully distinguished a burst of four failed login attempts from four attempts distributed over a longer period.
 
-### Version 2 — Tested Successfully
+### Version 3
 
-Version 2 successfully implemented time-based detection using a five-minute sliding window.
+Successfully demonstrated:
 
-The test dataset contained two source IP addresses with four failed authentication attempts each.
+- Extraction of usernames from failed authentication entries.
+- Correct grouping of failures by IP.
+- Command-line selection of the input log.
+- Configurable threshold and time window.
+- Generation of a CSV report.
 
-One source generated repeated failures within five minutes, while the other generated failures distributed over approximately 30 minutes.
+A test with a threshold of 10 and a 15-minute window produced NORMAL results for both source IPs, each with four total failures.
 
-Expected detection output:
+## CSV Reporting
 
-```text
-=== SSH Failed Login Analyzer v2 ===
-Threshold: 3 attempts
-Time window: 5 minutes
+Version 3 generates `ssh_report.csv` with the following fields:
 
-192.0.2.10: 4 total failures
-  [ALERT] 3+ failures within 5 minutes!
-  Detected at: 2026-11-08 10:15:10
-198.51.100.25: 4 total failures
-  No suspicious burst detected.
-```
+- `ip_address`
+- `total_failures`
+- `usernames`
+- `status`
+- `alert_time`
 
-**Result: PASS**
-
-## Security Considerations
-
-This tool is intended for educational security analysis and authorized monitoring.
-
-Repeated authentication failures may indicate brute-force attempts, but they do not conclusively establish malicious activity.
-
-The sample logs use reserved documentation IP addresses rather than real infrastructure information.
+The report is overwritten each time the analyzer runs.
 
 ## Known Limitations
 
-- IPv4 addresses only.
-- Limited SSH authentication event coverage.
-- No automatic response or blocking.
-- No real-time monitoring.
-- Version 2 assumes timestamps belong to 2026.
-- No handling of log rotation or multiple log files.
-- Alerts require analyst interpretation.
+- Supports IPv4 addresses only.
+- Processes supported SSH `Failed password` log formats rather than every possible authentication event.
+- Does not currently handle year boundaries within a log file.
+- Does not perform live monitoring.
+- Does not automatically block source IP addresses.
+- Records the first threshold crossing per IP rather than every suspicious burst.
+- Does not establish malicious intent; alerts indicate potentially suspicious patterns.
+- The CSV output filename is fixed and previous reports are overwritten.
+
+**Timestamp Year Accuracy:** Traditional Linux syslog entries often omit the year. Version 3 estimates the event year using the input log file's last modification timestamp (`st_mtime`).
+
+**Known flaw:** The modification date reflects when the file was last changed, not necessarily when the logged events occurred. Copying, editing, or regenerating a log can change this timestamp. Additionally, logs containing events from multiple years may be assigned an incorrect year.
+
+This can affect chronological sorting, sliding-window detection, and alert timestamps.
+
+**Planned improvement:** Extract the year from log entries when available and provide an explicit year argument for logs that omit it.
 
 ## Future Improvements
 
-- CSV report generation.
-- Username extraction and tracking.
-- IPv6 support.
-- Improved error handling.
-- Dynamic timestamp and year handling.
-- Analysis of real Linux authentication logs.
-- Comparison of detection results with Wazuh SIEM alerts.
+Potential future development includes:
+
+- IPv6 support
+- More robust timestamp parsing
+- Additional SSH authentication event formats
+- Live log monitoring
+- Analysis of sanitized homelab logs
+- Comparison with Wazuh SIEM detection rules
 
 ## Skills Demonstrated
 
-- Python scripting
-- Log parsing
-- Regular expressions
-- Data aggregation
-- Conditional logic
-- Time-based event correlation
-- Security monitoring fundamentals
-- Technical documentation
+Python programming, regular expressions, log analysis, event correlation, sliding-window algorithms, command-line interfaces, CSV reporting, debugging, and security documentation.
 
 ## Project Documentation
 
-For additional information about the methodology, testing, security analysis, and development process, see [PROJECT_REPORT.md](PROJECT_REPORT.md).
+See [PROJECT_REPORT.md](PROJECT_REPORT.md) for the project methodology, testing, security analysis, and lessons learned.
 
-**Development status: Versions 1 and 2 successfully tested.**
+**Project status:** Versions 1 and 2 tested successfully; Version 3 implemented and undergoing final validation.
